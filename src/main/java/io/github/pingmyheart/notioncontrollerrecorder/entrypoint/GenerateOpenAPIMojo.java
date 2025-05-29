@@ -2,6 +2,7 @@ package io.github.pingmyheart.notioncontrollerrecorder.entrypoint;
 
 import com.github.javaparser.JavaParser;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
+import com.github.javaparser.ast.expr.NormalAnnotationExpr;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
@@ -14,6 +15,8 @@ import java.io.IOException;
 import java.nio.file.FileVisitOption;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
@@ -41,6 +44,8 @@ public class GenerateOpenAPIMojo extends AbstractMojo {
                                                     if (clazz.isAnnotationPresent("RestController") ||
                                                             clazz.isAnnotationPresent("Controller")) {
                                                         getLog().info("Found controller: " + clazz.getNameAsString());
+                                                        getLog().info("Generating OpenAPI documentation for: " + clazz.getNameAsString());
+                                                        getLog().info("Controller path: " + extractControllerPath(clazz));
                                                     }
                                                 });
                                     });
@@ -51,5 +56,28 @@ public class GenerateOpenAPIMojo extends AbstractMojo {
         } catch (IOException e) {
             getLog().error(e.getMessage(), e);
         }
+    }
+
+    private String extractControllerPath(ClassOrInterfaceDeclaration clazz) {
+        List<String> paths = new ArrayList<>();
+        clazz.getAnnotationByName("RequestMapping").ifPresent(annotation -> {
+            getLog().debug("Found @RequestMapping on class: " + clazz.getNameAsString());
+
+            if (annotation.isNormalAnnotationExpr()) {
+                NormalAnnotationExpr normalAnnotation = annotation.asNormalAnnotationExpr();
+                normalAnnotation.getPairs()
+                        .forEach(pair -> {
+                            getLog().debug(" - " + pair.getNameAsString() + ": " + pair.getValue());
+                            paths.add(pair.getValue().toString());
+                        });
+            } else if (annotation.isSingleMemberAnnotationExpr()) {
+                // e.g., @RequestMapping("/api")
+                getLog().debug(" - value: " + annotation.asSingleMemberAnnotationExpr().getMemberValue());
+                paths.add(annotation.asSingleMemberAnnotationExpr().getMemberValue().toString());
+            } else if (annotation.isMarkerAnnotationExpr()) {
+                getLog().debug(" - (marker annotation, no attributes)");
+            }
+        });
+        return String.join(", ", paths);
     }
 }
