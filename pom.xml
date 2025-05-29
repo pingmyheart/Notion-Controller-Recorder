@@ -12,10 +12,10 @@
     <distributionManagement>
         <repository>
             <id>github</id>
-            <name>GitHub Packages</name>
-            <url>https://maven.pkg.github.com/pingmyheart/Notion-Controller-Recorder</url>
+            <url>https://maven.pkg.github.com/pingmyheart/notion-controller-recorder</url>
         </repository>
     </distributionManagement>
+
 
     <properties>
         <!-- Maven -->
