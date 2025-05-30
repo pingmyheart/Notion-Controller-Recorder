@@ -28,6 +28,11 @@
 
         <!-- Code Utils -->
         <lombok.version>1.18.38</lombok.version>
+        <json.version>20250517</json.version>
+
+        <!-- Rest -->
+        <spring-webflux.version>6.1.6</spring-webflux.version>
+        <reactor-core.version>3.6.6</reactor-core.version>
 
         <!-- Maven Plugin Tools -->
         <maven-plugin-api.version>3.6.3</maven-plugin-api.version>
@@ -49,6 +54,23 @@
                 <groupId>org.projectlombok</groupId>
                 <artifactId>lombok</artifactId>
                 <version>${lombok.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.json</groupId>
+                <artifactId>json</artifactId>
+                <version>${json.version}</version>
+            </dependency>
+
+            <!-- Rest -->
+            <dependency>
+                <groupId>org.springframework</groupId>
+                <artifactId>spring-webflux</artifactId>
+                <version>${spring-webflux.version}</version> <!-- Check for the latest version -->
+            </dependency>
+            <dependency>
+                <groupId>io.projectreactor</groupId>
+                <artifactId>reactor-core</artifactId>
+                <version>${reactor-core.version}</version>
             </dependency>
 
             <!-- Maven Plugin Tools -->
@@ -82,6 +104,21 @@
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.json</groupId>
+            <artifactId>json</artifactId>
+        </dependency>
+
+        <!-- Rest -->
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-webflux</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.projectreactor</groupId>
+            <artifactId>reactor-core</artifactId>
+            <version>3.6.6</version>
         </dependency>
 
         <!-- Maven Plugin Tools -->

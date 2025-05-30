@@ -1,14 +1,15 @@
 package io.github.pingmyheart.notioncontrollerrecorder.entrypoint;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.util.DefaultPrettyPrinter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.javaparser.JavaParser;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.expr.AnnotationExpr;
-import io.github.pingmyheart.notioncontrollerrecorder.dto.ControllerDTO;
-import io.github.pingmyheart.notioncontrollerrecorder.dto.EndpointDTO;
-import io.github.pingmyheart.notioncontrollerrecorder.dto.ReportDTO;
+import io.github.pingmyheart.notioncontrollerrecorder.dto.internal.ControllerDTO;
+import io.github.pingmyheart.notioncontrollerrecorder.dto.internal.EndpointDTO;
+import io.github.pingmyheart.notioncontrollerrecorder.dto.internal.ReportDTO;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
@@ -16,7 +17,9 @@ import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 
+import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.file.FileVisitOption;
 import java.nio.file.Files;
@@ -29,12 +32,14 @@ import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
-@Mojo(name = "generate-json",
+@Mojo(name = "generate",
         defaultPhase = LifecyclePhase.PACKAGE,
         aggregator = true)
-public class GenerateOpenAPIMojo extends AbstractMojo {
+public class GenerateDocumentationMojo extends AbstractMojo {
     @Parameter(defaultValue = "${project.basedir}/src/main/java", required = true)
     private File sourceDirectory;
+    @Parameter(defaultValue = "${project.build.directory}/generated-sources/notion-report.json", required = true)
+    private File outputFile;
 
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
@@ -53,8 +58,7 @@ public class GenerateOpenAPIMojo extends AbstractMojo {
                                     .ifPresent(result ->
                                             result.findAll(ClassOrInterfaceDeclaration.class)
                                                     .forEach(clazz -> {
-                                                        if (clazz.isAnnotationPresent("RestController") ||
-                                                                clazz.isAnnotationPresent("Controller")) {
+                                                        if (isController(clazz)) {
                                                             getLog().info("Found controller: " + clazz.getNameAsString());
                                                             getLog().info("Generating custom OpenAPI documentation for: " + clazz.getNameAsString());
                                                             ControllerDTO controllerDTO = ControllerDTO.builder()
@@ -63,11 +67,7 @@ public class GenerateOpenAPIMojo extends AbstractMojo {
                                                                     .build();
                                                             clazz.getMethods()
                                                                     .forEach(methodDeclaration -> {
-                                                                        if (methodDeclaration.isAnnotationPresent("GetMapping") ||
-                                                                                methodDeclaration.isAnnotationPresent("PostMapping") ||
-                                                                                methodDeclaration.isAnnotationPresent("PutMapping") ||
-                                                                                methodDeclaration.isAnnotationPresent("PatchMapping") ||
-                                                                                methodDeclaration.isAnnotationPresent("DeleteMapping")) {
+                                                                        if (isRestConcreteAnnotation(methodDeclaration)) {
                                                                             getLog().debug("Found endpoint: " + methodDeclaration.getNameAsString());
                                                                             controllerDTO.getEndpoints()
                                                                                     .add(extractEndpointInfo(methodDeclaration));
@@ -87,52 +87,51 @@ public class GenerateOpenAPIMojo extends AbstractMojo {
 
         getLog().info("OpenAPI documentation generation completed.");
         try {
-            getLog().info(new ObjectMapper().writeValueAsString(reportDTO));
+            String content = new ObjectMapper().setDefaultPrettyPrinter(new DefaultPrettyPrinter())
+                    .writerWithDefaultPrettyPrinter()
+                    .writeValueAsString(reportDTO);
+            try (BufferedWriter writer = new BufferedWriter(new FileWriter(outputFile))) {
+                writer.write(content);
+            }
         } catch (JsonProcessingException e) {
             getLog().error("Error serializing report to JSON: " + e.getMessage(), e);
+        } catch (IOException e) {
+            getLog().error("Error writing report to file: " + e.getMessage(), e);
         }
+    }
+
+    private boolean isRestConcreteAnnotation(MethodDeclaration methodDeclaration) {
+        return methodDeclaration.isAnnotationPresent("GetMapping") ||
+                methodDeclaration.isAnnotationPresent("PostMapping") ||
+                methodDeclaration.isAnnotationPresent("PutMapping") ||
+                methodDeclaration.isAnnotationPresent("PatchMapping") ||
+                methodDeclaration.isAnnotationPresent("DeleteMapping");
+    }
+
+    private boolean isController(ClassOrInterfaceDeclaration clazz) {
+        return clazz.isAnnotationPresent("RestController") ||
+                clazz.isAnnotationPresent("Controller");
     }
 
     private EndpointDTO extractEndpointInfo(MethodDeclaration methodDeclaration) {
         EndpointDTO endpoint = EndpointDTO.builder()
                 .methodName(methodDeclaration.getNameAsString())
+                .methodSignature((methodDeclaration.getDeclarationAsString(true, true, true)))
                 .build();
-        methodDeclaration.getAnnotationByName("GetMapping")
-                .ifPresent(annotation -> {
-                    endpoint.setPath(extractAnnotationFields(annotation).getOrDefault("path", ""));
-                    endpoint.setProduces(extractAnnotationFields(annotation).getOrDefault("produces", "MediaType.APPLICATION_JSON_VALUE"));
-                    endpoint.setConsumes(extractAnnotationFields(annotation).getOrDefault("consumes", "MediaType.APPLICATION_JSON_VALUE"));
-                    endpoint.setHttpMethod("GET");
-                });
-        methodDeclaration.getAnnotationByName("PostMapping")
-                .ifPresent(annotation -> {
-                    endpoint.setPath(extractAnnotationFields(annotation).getOrDefault("path", ""));
-                    endpoint.setProduces(extractAnnotationFields(annotation).getOrDefault("produces", "MediaType.APPLICATION_JSON_VALUE"));
-                    endpoint.setConsumes(extractAnnotationFields(annotation).getOrDefault("consumes", "MediaType.APPLICATION_JSON_VALUE"));
-                    endpoint.setHttpMethod("POST");
-                });
-        methodDeclaration.getAnnotationByName("PutMapping")
-                .ifPresent(annotation -> {
-                    endpoint.setPath(extractAnnotationFields(annotation).getOrDefault("path", ""));
-                    endpoint.setProduces(extractAnnotationFields(annotation).getOrDefault("produces", "MediaType.APPLICATION_JSON_VALUE"));
-                    endpoint.setConsumes(extractAnnotationFields(annotation).getOrDefault("consumes", "MediaType.APPLICATION_JSON_VALUE"));
-                    endpoint.setHttpMethod("PUT");
-                });
-        methodDeclaration.getAnnotationByName("PatchMapping")
-                .ifPresent(annotation -> {
-                    endpoint.setPath(extractAnnotationFields(annotation).getOrDefault("path", ""));
-                    endpoint.setProduces(extractAnnotationFields(annotation).getOrDefault("produces", "MediaType.APPLICATION_JSON_VALUE"));
-                    endpoint.setConsumes(extractAnnotationFields(annotation).getOrDefault("consumes", "MediaType.APPLICATION_JSON_VALUE"));
-                    endpoint.setHttpMethod("PATCH");
-                });
-        methodDeclaration.getAnnotationByName("DeleteMapping")
-                .ifPresent(annotation -> {
-                    endpoint.setPath(extractAnnotationFields(annotation).getOrDefault("path", ""));
-                    endpoint.setProduces(extractAnnotationFields(annotation).getOrDefault("produces", "MediaType.APPLICATION_JSON_VALUE"));
-                    endpoint.setConsumes(extractAnnotationFields(annotation).getOrDefault("consumes", "MediaType.APPLICATION_JSON_VALUE"));
-                    endpoint.setHttpMethod("DELETE");
-                });
-
+        List.of("GetMapping",
+                "PostMapping",
+                "PutMapping",
+                "PatchMapping",
+                "DeleteMapping").forEach(mapping -> {
+            getLog().debug("Processing mapping: " + mapping + " for method: " + methodDeclaration.getNameAsString());
+            methodDeclaration.getAnnotationByName(mapping)
+                    .ifPresent(annotation -> {
+                        endpoint.setPath(extractAnnotationFields(annotation).getOrDefault("path", ""));
+                        endpoint.setProduces(extractAnnotationFields(annotation).getOrDefault("produces", "MediaType.APPLICATION_JSON_VALUE"));
+                        endpoint.setConsumes(extractAnnotationFields(annotation).getOrDefault("consumes", "MediaType.APPLICATION_JSON_VALUE"));
+                        endpoint.setHttpMethod(mapping.replace("Mapping", "").toUpperCase());
+                    });
+        });
         return endpoint;
     }
 
