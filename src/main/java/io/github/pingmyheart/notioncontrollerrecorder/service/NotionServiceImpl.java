@@ -1,7 +1,7 @@
 package io.github.pingmyheart.notioncontrollerrecorder.service;
 
+import io.github.pingmyheart.notioncontrollerrecorder.dto.external.request.CreatePageNotionRequest;
 import io.github.pingmyheart.notioncontrollerrecorder.dto.internal.ReportDTO;
-import io.github.pingmyheart.notioncontrollerrecorder.dto.notion.CreatePageDTO;
 import lombok.Builder;
 import lombok.RequiredArgsConstructor;
 import org.json.JSONObject;
@@ -11,6 +11,8 @@ import reactor.core.publisher.Mono;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
+
+import static java.util.Objects.isNull;
 
 @RequiredArgsConstructor
 @Builder
@@ -68,17 +70,17 @@ public class NotionServiceImpl implements NotionService {
     private String createProject(String notionToken,
                                  String notionPageId,
                                  String projectName) {
-        CreatePageDTO request = CreatePageDTO.builder()
-                .parent(CreatePageDTO.Parent.builder()
+        CreatePageNotionRequest request = CreatePageNotionRequest.builder()
+                .parent(CreatePageNotionRequest.Parent.builder()
                         .pageId(notionPageId)
                         .build())
-                .icon(CreatePageDTO.Icon.builder()
+                .icon(CreatePageNotionRequest.Icon.builder()
                         .emoji("📁")
                         .build())
-                .properties(CreatePageDTO.Properties.builder()
-                        .title(List.of(CreatePageDTO.Title.builder()
+                .properties(CreatePageNotionRequest.Properties.builder()
+                        .title(List.of(CreatePageNotionRequest.Title.builder()
                                 .type("text")
-                                .text(CreatePageDTO.Text.builder()
+                                .text(CreatePageNotionRequest.Text.builder()
                                         .content(projectName)
                                         .build())
                                 .build()))
@@ -115,6 +117,23 @@ public class NotionServiceImpl implements NotionService {
 
     private void deletePageContent(String notionToken,
                                    String pageId) {
-
+        String nextCursor = null;
+        String uri = isNull(nextCursor) ?
+                "/blocks/{pageId}/children" :
+                "/blocks/{pageId}/children?start_cursor={nextCursor}";
+        String response = notionWebClient.get()
+                .uri(uri, pageId)
+                .header("Authorization", "Bearer " + notionToken)
+                .exchangeToMono(clientResponse -> clientResponse.statusCode().is2xxSuccessful() ?
+                        clientResponse.bodyToMono(String.class) :
+                        Mono.just(EMPTY_STRING))
+                .block();
+        if (!EMPTY_STRING.equals(response)) {
+            JSONObject jsonResponse = new JSONObject(Objects.requireNonNull(response));
+            jsonResponse.getJSONArray("results")
+                    .forEach(json -> {
+                        JSONObject block = (JSONObject) json;
+                    });
+        }
     }
 }

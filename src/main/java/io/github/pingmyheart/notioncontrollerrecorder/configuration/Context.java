@@ -1,5 +1,9 @@
 package io.github.pingmyheart.notioncontrollerrecorder.configuration;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import io.github.pingmyheart.notioncontrollerrecorder.service.NotionServiceImpl;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
@@ -11,6 +15,7 @@ import java.util.concurrent.atomic.AtomicReference;
 public class Context {
     private static final AtomicReference<WebClient> notionWebClient = new AtomicReference<>();
     private static final AtomicReference<NotionServiceImpl> notionService = new AtomicReference<>();
+    private static final AtomicReference<ObjectMapper> objectMapper = new AtomicReference<>();
     private static final Object mutex = new Object();
 
     public static WebClient getNotionWebClient() {
@@ -41,6 +46,24 @@ public class Context {
                             .notionWebClient(getNotionWebClient())
                             .build();
                     notionService.set(result);
+                }
+            }
+        }
+        return result;
+    }
+
+    public static ObjectMapper getObjectMapper() {
+        ObjectMapper result = objectMapper.get();
+        if (result == null) {
+            synchronized (mutex) {
+                result = objectMapper.get();
+                if (result == null) {
+                    result = new ObjectMapper();
+                    result.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+                    result.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
+                    result.setSerializationInclusion(JsonInclude.Include.NON_NULL);
+                    result.findAndRegisterModules();
+                    objectMapper.set(result);
                 }
             }
         }

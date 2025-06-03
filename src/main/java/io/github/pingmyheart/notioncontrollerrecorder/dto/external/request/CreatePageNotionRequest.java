@@ -1,4 +1,4 @@
-package io.github.pingmyheart.notioncontrollerrecorder.dto.notion;
+package io.github.pingmyheart.notioncontrollerrecorder.dto.external.request;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
@@ -12,7 +12,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class CreatePageDTO {
+public class CreatePageNotionRequest {
     private Parent parent;
     private Icon icon;
     private Properties properties;
