@@ -32,17 +32,32 @@ import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
+/**
+ * Generates OpenAPI documentation for controllers annotated with Spring's @RestController or @Controller annotations.
+ * This Mojo scans the source directory for Java files,
+ * parses them to find controller classes,
+ * and extracts endpoint information
+ */
 @Mojo(name = "generate",
         defaultPhase = LifecyclePhase.PACKAGE,
         aggregator = true)
 public class GenerateDocumentationMojo extends AbstractMojo {
     @Parameter(defaultValue = "${project.basedir}/src/main/java", required = true)
     private File sourceDirectory;
-    @Parameter(defaultValue = "${project.build.directory}/generated-sources/notion-report.json", required = true)
+    @Parameter(defaultValue = "${project.build.directory}/generated-sources/ncrmp/notion-report.json",
+            required = true)
     private File outputFile;
 
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
+        if (!outputFile.getParentFile().exists()) {
+            if (outputFile.getParentFile().mkdirs()) {
+                getLog().info("Created directories for output file: " + outputFile.getParentFile().getAbsolutePath());
+            } else {
+                getLog().warn("Failed to create directories for output file: " + outputFile.getParentFile().getAbsolutePath());
+                throw new MojoExecutionException("Failed to create directories for output file: " + outputFile.getParentFile().getAbsolutePath());
+            }
+        }
         getLog().info("Scanning source files in: " + sourceDirectory);
 
         ReportDTO reportDTO = ReportDTO.builder()
@@ -127,8 +142,8 @@ public class GenerateDocumentationMojo extends AbstractMojo {
             methodDeclaration.getAnnotationByName(mapping)
                     .ifPresent(annotation -> {
                         endpoint.setPath(extractAnnotationFields(annotation).getOrDefault("path", ""));
-                        endpoint.setProduces(extractAnnotationFields(annotation).getOrDefault("produces", "MediaType.APPLICATION_JSON_VALUE"));
-                        endpoint.setConsumes(extractAnnotationFields(annotation).getOrDefault("consumes", "MediaType.APPLICATION_JSON_VALUE"));
+                        endpoint.setProduces(extractAnnotationFields(annotation).getOrDefault("produces", "application/json"));
+                        endpoint.setConsumes(extractAnnotationFields(annotation).getOrDefault("consumes", "application/json"));
                         endpoint.setHttpMethod(mapping.replace("Mapping", "").toUpperCase());
                     });
         });

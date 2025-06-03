@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import io.github.pingmyheart.notioncontrollerrecorder.service.NotionServiceImpl;
+import io.github.pingmyheart.notioncontrollerrecorder.service.WebClientImpl;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -15,6 +16,7 @@ import java.util.concurrent.atomic.AtomicReference;
 public class Context {
     private static final AtomicReference<WebClient> notionWebClient = new AtomicReference<>();
     private static final AtomicReference<NotionServiceImpl> notionService = new AtomicReference<>();
+    private static final AtomicReference<WebClientImpl> webClientImpl = new AtomicReference<>();
     private static final AtomicReference<ObjectMapper> objectMapper = new AtomicReference<>();
     private static final Object mutex = new Object();
 
@@ -28,6 +30,7 @@ public class Context {
                             .baseUrl("https://api.notion.com/v1")
                             .defaultHeader("Notion-Version", "2022-06-28")
                             .defaultHeader("Content-Type", "application/json")
+                            .defaultHeader("Authorization", "Bearer " + Environment.get("notionToken"))
                             .build();
                     notionWebClient.set(webClient);
                 }
@@ -43,9 +46,27 @@ public class Context {
                 result = notionService.get();
                 if (result == null) {
                     result = NotionServiceImpl.builder()
-                            .notionWebClient(getNotionWebClient())
+                            .notionWebClient(getWebClientImpl())
+                            .objectMapper(getObjectMapper())
                             .build();
                     notionService.set(result);
+                }
+            }
+        }
+        return result;
+    }
+
+    public static WebClientImpl getWebClientImpl() {
+        WebClientImpl result = webClientImpl.get();
+        if (result == null) {
+            synchronized (mutex) {
+                result = webClientImpl.get();
+                if (result == null) {
+                    result = WebClientImpl.builder()
+                            .notionWebClient(getNotionWebClient())
+                            .objectMapper(getObjectMapper())
+                            .notionToken(Environment.get("notionToken"))
+                            .build();
                 }
             }
         }

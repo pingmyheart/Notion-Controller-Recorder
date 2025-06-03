@@ -1,74 +1,102 @@
 package io.github.pingmyheart.notioncontrollerrecorder.service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.pingmyheart.notioncontrollerrecorder.dto.external.request.CreatePageNotionRequest;
+import io.github.pingmyheart.notioncontrollerrecorder.dto.external.response.CreatePageNotionResponse;
+import io.github.pingmyheart.notioncontrollerrecorder.dto.external.response.NotionBaseResponse;
+import io.github.pingmyheart.notioncontrollerrecorder.dto.external.response.RetrieveBlocksNotionResponse;
 import io.github.pingmyheart.notioncontrollerrecorder.dto.internal.ReportDTO;
+import io.github.pingmyheart.notioncontrollerrecorder.dto.notion.PageDTO;
 import lombok.Builder;
 import lombok.RequiredArgsConstructor;
-import org.json.JSONObject;
-import org.springframework.web.reactive.function.client.WebClient;
-import reactor.core.publisher.Mono;
+import lombok.SneakyThrows;
+import org.apache.maven.plugin.MojoExecutionException;
+import org.apache.maven.plugin.logging.SystemStreamLog;
+import org.springframework.http.HttpMethod;
 
+import java.text.MessageFormat;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import static java.util.Objects.isNull;
+import static java.util.Objects.nonNull;
 
 @RequiredArgsConstructor
 @Builder
 public class NotionServiceImpl implements NotionService {
-    private static final String EMPTY_STRING = "";
-    private final WebClient notionWebClient;
+    private final WebClientImpl notionWebClient;
+    private final ObjectMapper objectMapper;
 
     /**
      * Retrieve page id from project name and if not found, create a new project.
      *
-     * @param projectName
-     * @return
+     * @param projectName the name of the project
+     * @return the project id
      */
-    @Override//TODO handle next cursor for pagination tio retrieve all pages
-    public String getOrCreateProjectId(String notionToken,
-                                       String notionPageId,
+    @Override
+    public String getOrCreateProjectId(String notionPageId,
                                        String projectName) {
-        String projectId = getProjectId(notionToken, notionPageId, projectName);
-        if (projectId.equals(EMPTY_STRING)) {
-            projectId = createProject(notionToken, notionPageId, projectName);
+        String projectId = getProjectId(notionPageId, projectName);
+        if (isNull(projectId)) {
+            projectId = createProject(notionPageId, projectName);
         }
         return projectId;
     }
 
-    private String getProjectId(String notionToken,
-                                String notionPageId,
-                                String projectName) {
-        String rsp = notionWebClient.get()
-                .uri("/blocks/{notionPageId}/children", notionPageId)
-                .header("Authorization", "Bearer " + notionToken)
-                .exchangeToMono(clientResponse -> clientResponse.statusCode().is2xxSuccessful() ?
-                        clientResponse.bodyToMono(String.class) :
-                        Mono.just(EMPTY_STRING))
-                .block();
-        if (EMPTY_STRING.equals(rsp)) {
-            return EMPTY_STRING;
-        }
-        AtomicReference<String> result = new AtomicReference<>(EMPTY_STRING);
-        JSONObject jsonResponse = new JSONObject(rsp);
-        if (jsonResponse.has("results")) {
-            jsonResponse.getJSONArray("results")
-                    .forEach(json -> {
-                        JSONObject block = (JSONObject) json;
-                        if (block.get("type").equals("child_page")) {
-                            String pageTitle = block.getJSONObject("child_page").getString("title");
-                            if (pageTitle.equals(projectName)) {
-                                result.set(((JSONObject) json).getString("id"));
-                            }
-                        }
-                    });
-        }
-        return result.get();
+    @SneakyThrows
+    private List<Object> getPageBlocks(String notionPageId) {
+        String nextCursor = null;
+        List<Object> blocks = new ArrayList<>();
+        do {
+            String uri = isNull(nextCursor) ?
+                    MessageFormat.format("/blocks/{0}/children", notionPageId) :
+                    MessageFormat.format("/blocks/{0}/children?start_cursor={1}", notionPageId, nextCursor);
+            RetrieveBlocksNotionResponse rsp = notionWebClient.exchange(uri,
+                    HttpMethod.GET,
+                    RetrieveBlocksNotionResponse.class,
+                    null);
+            if ("error".equals(rsp.getObject())) {
+                throw new MojoExecutionException("Failed to retrieve project page in Notion: " + rsp.getMessage());
+            }
+            nextCursor = rsp.getNextCursor();
+            blocks.addAll(rsp.getResults());
+        } while (nonNull(nextCursor));
+        return blocks;
     }
 
-    private String createProject(String notionToken,
-                                 String notionPageId,
+    @SneakyThrows
+    private List<PageDTO> retrieveProjectPages(String notionPageId) {
+        return getPageBlocks(notionPageId)
+                .stream()
+                .map(json -> {
+                    Map<String, Object> block = objectMapper.convertValue(json, new TypeReference<>() {
+                    });
+                    if ("child_page".equals(block.get("type"))) {
+                        return objectMapper.convertValue(block, PageDTO.class);
+                    }
+                    return null;
+                })
+                .filter(Objects::nonNull)
+                .toList();
+    }
+
+    @SneakyThrows
+    private String getProjectId(String notionPageId,
+                                String projectName) {
+        return retrieveProjectPages(notionPageId).stream()
+                .filter(o -> o.getChildPage().getTitle().equals(projectName))
+                .findFirst()
+                .map(PageDTO::getId)
+                .orElse(null);
+    }
+
+    @SneakyThrows
+    private String createProject(String notionPageId,
                                  String projectName) {
         CreatePageNotionRequest request = CreatePageNotionRequest.builder()
                 .parent(CreatePageNotionRequest.Parent.builder()
@@ -86,54 +114,45 @@ public class NotionServiceImpl implements NotionService {
                                 .build()))
                         .build())
                 .build();
-        String response = notionWebClient.post()
-                .uri("/pages")
-                .header("Authorization", "Bearer " + notionToken)
-                .bodyValue(request)
-                .exchangeToMono(clientResponse -> clientResponse.statusCode().is2xxSuccessful() ?
-                        clientResponse.bodyToMono(String.class) :
-                        Mono.just(EMPTY_STRING))
-                .block();
-        if (EMPTY_STRING.equals(response)) {
-            return EMPTY_STRING;
+        CreatePageNotionResponse response = notionWebClient.exchange("/pages",
+                HttpMethod.POST,
+                CreatePageNotionResponse.class,
+                request);
+        if ("error".equals(response.getObject())) {
+            throw new MojoExecutionException("Failed to create project page in Notion: " + response.getMessage());
         }
-        JSONObject jsonResponse = new JSONObject(Objects.requireNonNull(response));
-        return jsonResponse.getString("id");
+        return response.getId();
     }
 
     /**
      * Create documentation in Notion.
      *
-     * @param notionToken
-     * @param projectVersionPageId
-     * @param reportDTO
+     * @param projectVersionPageId the page id of the project version
+     * @param reportDTO            the report data transfer object containing the documentation
      */
     @Override
-    public void createDocumentation(String notionToken,
-                                    String projectVersionPageId,
+    public void createDocumentation(String projectVersionPageId,
                                     ReportDTO reportDTO) {
-
+        deletePageContent(projectVersionPageId);
     }
 
-    private void deletePageContent(String notionToken,
-                                   String pageId) {
-        String nextCursor = null;
-        String uri = isNull(nextCursor) ?
-                "/blocks/{pageId}/children" :
-                "/blocks/{pageId}/children?start_cursor={nextCursor}";
-        String response = notionWebClient.get()
-                .uri(uri, pageId)
-                .header("Authorization", "Bearer " + notionToken)
-                .exchangeToMono(clientResponse -> clientResponse.statusCode().is2xxSuccessful() ?
-                        clientResponse.bodyToMono(String.class) :
-                        Mono.just(EMPTY_STRING))
-                .block();
-        if (!EMPTY_STRING.equals(response)) {
-            JSONObject jsonResponse = new JSONObject(Objects.requireNonNull(response));
-            jsonResponse.getJSONArray("results")
-                    .forEach(json -> {
-                        JSONObject block = (JSONObject) json;
-                    });
+    private void deletePageContent(String pageId) {
+        ExecutorService executor = Executors.newFixedThreadPool(3);
+        //retrieve all blocks in the page
+        List<Object> blocks = getPageBlocks(pageId);
+        while (!blocks.isEmpty()) {
+            blocks.forEach(pageBlock -> {
+                Map<String, Object> block = objectMapper.convertValue(pageBlock, new TypeReference<>() {
+                });
+                executor.submit(() -> {
+                    var response = notionWebClient.exchange(MessageFormat.format("/blocks/{0}", block.get("id")),
+                            HttpMethod.DELETE,
+                            NotionBaseResponse.class,
+                            null);
+                    new SystemStreamLog().info(response.toString());
+                });
+            });
+            blocks = getPageBlocks(pageId);
         }
     }
 }
