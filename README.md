@@ -41,7 +41,7 @@ dependency to your `pom.xml`:
   <pluginRepositories>
     <pluginRepository>
       <id>github</id>
-      <url>https://maven.pkg.github.com/pingmyheart/notion-controller-recorder-maven-plugin</url>
+      <url>https://maven.pkg.github.com/pingmyheart/notion-controller-recorder</url>
     </pluginRepository>
   </pluginRepositories>
   ...
