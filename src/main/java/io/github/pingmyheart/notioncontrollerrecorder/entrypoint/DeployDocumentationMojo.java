@@ -18,7 +18,7 @@ import java.io.IOException;
 import static java.util.Objects.nonNull;
 
 @Mojo(name = "deploy",
-        defaultPhase = LifecyclePhase.PACKAGE,
+        defaultPhase = LifecyclePhase.DEPLOY,
         aggregator = true)
 public class DeployDocumentationMojo extends AbstractMojo {
     @Parameter(defaultValue = "${project.build.directory}/generated-sources/notion-report.json", required = true)
