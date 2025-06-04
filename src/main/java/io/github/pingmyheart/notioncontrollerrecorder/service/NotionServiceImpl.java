@@ -2,6 +2,7 @@ package io.github.pingmyheart.notioncontrollerrecorder.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.pingmyheart.notioncontrollerrecorder.dto.external.request.CreatePageContentNotionRequest;
 import io.github.pingmyheart.notioncontrollerrecorder.dto.external.request.CreatePageNotionRequest;
 import io.github.pingmyheart.notioncontrollerrecorder.dto.external.response.CreatePageNotionResponse;
 import io.github.pingmyheart.notioncontrollerrecorder.dto.external.response.NotionBaseResponse;
@@ -12,7 +13,6 @@ import lombok.Builder;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import org.apache.maven.plugin.MojoExecutionException;
-import org.apache.maven.plugin.logging.SystemStreamLog;
 import org.springframework.http.HttpMethod;
 
 import java.text.MessageFormat;
@@ -20,8 +20,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 import static java.util.Objects.isNull;
 import static java.util.Objects.nonNull;
@@ -134,25 +132,131 @@ public class NotionServiceImpl implements NotionService {
     public void createDocumentation(String projectVersionPageId,
                                     ReportDTO reportDTO) {
         deletePageContent(projectVersionPageId);
+        List<CreatePageContentNotionRequest.GenericObject> genericObjects = new ArrayList<>();
+        genericObjects.add(CreatePageContentNotionRequest.GenericObject.builder()
+                .type("table_of_contents")
+                .toc(CreatePageContentNotionRequest.GenericObject.TOC.builder()
+                        .build())
+                .build());
+        reportDTO.getControllers()
+                .forEach(controller -> {
+                    genericObjects.add(CreatePageContentNotionRequest.GenericObject.builder()
+                            .type("heading_1")
+                            .heading1(CreatePageContentNotionRequest.GenericObject.ContentHolder.builder()
+                                    .richText(List.of(CreatePageContentNotionRequest.GenericObject.RichText.builder()
+                                            .type("text")
+                                            .text(CreatePageContentNotionRequest.GenericObject.Text.builder()
+                                                    .content(controller.getName())
+                                                    .build())
+                                            .build()))
+                                    .build())
+                            .build());
+                    genericObjects.add(CreatePageContentNotionRequest.GenericObject.builder()
+                            .type("paragraph")
+                            .paragraph(CreatePageContentNotionRequest.GenericObject.ContentHolder.builder()
+                                    .richText(List.of(CreatePageContentNotionRequest.GenericObject.RichText.builder()
+                                                    .type("text")
+                                                    .text(CreatePageContentNotionRequest.GenericObject.Text.builder()
+                                                            .content("BasePath")
+                                                            .build())
+                                                    .annotations(CreatePageContentNotionRequest.GenericObject.Annotations.builder()
+                                                            .bold(Boolean.TRUE)
+                                                            .build())
+                                                    .build(),
+                                            CreatePageContentNotionRequest.GenericObject.RichText.builder()
+                                                    .type("text")
+                                                    .text(CreatePageContentNotionRequest.GenericObject.Text.builder()
+                                                            .content(": ")
+                                                            .build())
+                                                    .build(),
+                                            CreatePageContentNotionRequest.GenericObject.RichText.builder()
+                                                    .type("text")
+                                                    .text(CreatePageContentNotionRequest.GenericObject.Text.builder()
+                                                            .content(controller.getBasePath())
+                                                            .build())
+                                                    .annotations(CreatePageContentNotionRequest.GenericObject.Annotations.builder()
+                                                            .code(Boolean.TRUE)
+                                                            .build())
+                                                    .build()))
+                                    .build())
+                            .build());
+                    controller.getEndpoints()
+                            .forEach(endpoint -> {
+                                genericObjects.add(CreatePageContentNotionRequest.GenericObject.builder()
+                                        .type("heading_2")
+                                        .heading2(CreatePageContentNotionRequest.GenericObject.ContentHolder.builder()
+                                                .richText(List.of(CreatePageContentNotionRequest.GenericObject.RichText.builder()
+                                                        .type("text")
+                                                        .text(CreatePageContentNotionRequest.GenericObject.Text.builder()
+                                                                .content(endpoint.getMethodName())
+                                                                .build())
+                                                        .build()))
+                                                .build())
+                                        .build());
+                                genericObjects.add(createEndpointPart("Signature", endpoint.getMethodSignature()));
+                                genericObjects.add(createEndpointPart("Endpoint", MessageFormat.format("{0} @ {1}",
+                                        endpoint.getHttpMethod(),
+                                        endpoint.getPath())));
+                                genericObjects.add(createEndpointPart("Consumes", endpoint.getConsumes()));
+                                genericObjects.add(createEndpointPart("Produces", endpoint.getProduces()));
+                            });
+                });
+
+        // Create the page content request
+
+        genericObjects.forEach(genericObject -> {
+            CreatePageContentNotionRequest request = CreatePageContentNotionRequest.builder()
+                    .children(List.of(genericObject))
+                    .build();
+            notionWebClient.exchange(MessageFormat.format("/blocks/{0}/children", projectVersionPageId),
+                    HttpMethod.PATCH,
+                    NotionBaseResponse.class,
+                    request);
+        });
+        // Send the request to create the page content
+
+    }
+
+    private CreatePageContentNotionRequest.GenericObject createEndpointPart(String type,
+                                                                            String content) {
+        return CreatePageContentNotionRequest.GenericObject.builder()
+                .paragraph(CreatePageContentNotionRequest.GenericObject.ContentHolder.builder()
+                        .richText(List.of(CreatePageContentNotionRequest.GenericObject.RichText.builder()
+                                        .type("text")
+                                        .text(CreatePageContentNotionRequest.GenericObject.Text.builder()
+                                                .content(type)
+                                                .build())
+                                        .annotations(CreatePageContentNotionRequest.GenericObject.Annotations.builder()
+                                                .bold(Boolean.TRUE)
+                                                .build())
+                                        .build(),
+                                CreatePageContentNotionRequest.GenericObject.RichText.builder()
+                                        .type("text")
+                                        .text(CreatePageContentNotionRequest.GenericObject.Text.builder()
+                                                .content(": ")
+                                                .build())
+                                        .build(),
+                                CreatePageContentNotionRequest.GenericObject.RichText.builder()
+                                        .type("text")
+                                        .text(CreatePageContentNotionRequest.GenericObject.Text.builder()
+                                                .content(content)
+                                                .build())
+                                        .annotations(CreatePageContentNotionRequest.GenericObject.Annotations.builder()
+                                                .code(Boolean.TRUE)
+                                                .build())
+                                        .build()))
+                        .build())
+                .build();
     }
 
     private void deletePageContent(String pageId) {
-        ExecutorService executor = Executors.newFixedThreadPool(3);
-        //retrieve all blocks in the page
-        List<Object> blocks = getPageBlocks(pageId);
-        while (!blocks.isEmpty()) {
-            blocks.forEach(pageBlock -> {
-                Map<String, Object> block = objectMapper.convertValue(pageBlock, new TypeReference<>() {
-                });
-                executor.submit(() -> {
-                    var response = notionWebClient.exchange(MessageFormat.format("/blocks/{0}", block.get("id")),
-                            HttpMethod.DELETE,
-                            NotionBaseResponse.class,
-                            null);
-                    new SystemStreamLog().info(response.toString());
-                });
+        getPageBlocks(pageId).forEach(pageBlock -> {
+            Map<String, Object> block = objectMapper.convertValue(pageBlock, new TypeReference<>() {
             });
-            blocks = getPageBlocks(pageId);
-        }
+            notionWebClient.exchange(MessageFormat.format("/blocks/{0}", block.get("id")),
+                    HttpMethod.DELETE,
+                    NotionBaseResponse.class,
+                    null);
+        });
     }
 }

@@ -142,8 +142,8 @@ public class GenerateDocumentationMojo extends AbstractMojo {
             methodDeclaration.getAnnotationByName(mapping)
                     .ifPresent(annotation -> {
                         endpoint.setPath(extractAnnotationFields(annotation).getOrDefault("path", ""));
-                        endpoint.setProduces(extractAnnotationFields(annotation).getOrDefault("produces", "application/json"));
-                        endpoint.setConsumes(extractAnnotationFields(annotation).getOrDefault("consumes", "application/json"));
+                        endpoint.setProduces(extractAnnotationFields(annotation).getOrDefault("produces", "application/json").replace("\"", ""));
+                        endpoint.setConsumes(extractAnnotationFields(annotation).getOrDefault("consumes", "application/json").replace("\"", ""));
                         endpoint.setHttpMethod(mapping.replace("Mapping", "").toUpperCase());
                     });
         });

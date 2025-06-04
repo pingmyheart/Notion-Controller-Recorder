@@ -8,6 +8,10 @@ import io.github.pingmyheart.notioncontrollerrecorder.service.NotionServiceImpl;
 import io.github.pingmyheart.notioncontrollerrecorder.service.WebClientImpl;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
+import org.springframework.http.codec.ClientCodecConfigurer;
+import org.springframework.http.codec.json.Jackson2JsonDecoder;
+import org.springframework.http.codec.json.Jackson2JsonEncoder;
+import org.springframework.web.reactive.function.client.ExchangeStrategies;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import java.util.concurrent.atomic.AtomicReference;
@@ -26,11 +30,16 @@ public class Context {
             synchronized (mutex) {
                 webClient = notionWebClient.get();
                 if (webClient == null) {
+                    ExchangeStrategies strategies = ExchangeStrategies.builder()
+                            .codecs(configurer -> overrideCodecsWithCustomMapper(configurer, getObjectMapper()))
+                            .build();
+
                     webClient = WebClient.builder()
                             .baseUrl("https://api.notion.com/v1")
                             .defaultHeader("Notion-Version", "2022-06-28")
                             .defaultHeader("Content-Type", "application/json")
                             .defaultHeader("Authorization", "Bearer " + Environment.get("notionToken"))
+                            .exchangeStrategies(strategies)
                             .build();
                     notionWebClient.set(webClient);
                 }
@@ -89,5 +98,10 @@ public class Context {
             }
         }
         return result;
+    }
+
+    private static void overrideCodecsWithCustomMapper(ClientCodecConfigurer configurer, ObjectMapper mapper) {
+        configurer.defaultCodecs().jackson2JsonDecoder(new Jackson2JsonDecoder(mapper));
+        configurer.defaultCodecs().jackson2JsonEncoder(new Jackson2JsonEncoder(mapper));
     }
 }
