@@ -9,6 +9,19 @@
     <version>0.0.1-SNAPSHOT</version>
     <packaging>maven-plugin</packaging>
 
+    <scm>
+        <url>https://github.com/pingmyheart/Notion-Controller-Recorder</url>
+        <connection>git://github.com/pingmyheart/Notion-Controller-Recorder.git</connection>
+        <developerConnection>git@github.com:pingmyheart/Notion-Controller-Recorder.git</developerConnection>
+    </scm>
+    <issueManagement>
+        <system>Github Issues</system>
+        <url>https://github.com/pingmyheart/Notion-Controller-Recorder/issues</url>
+    </issueManagement>
+    <ciManagement>
+        <system>Github Actions</system>
+        <url>https://github.com/pingmyheart/Notion-Controller-Recorder/actions</url>
+    </ciManagement>
     <distributionManagement>
         <repository>
             <id>github</id>
@@ -16,6 +29,13 @@
             <url>https://maven.pkg.github.com/pingmyheart/notion-controller-recorder</url>
         </repository>
     </distributionManagement>
+    <licenses>
+        <license>
+            <name>MIT license</name>
+            <url>https://opensource.org/license/mit</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
 
 
     <properties>
@@ -30,7 +50,6 @@
         <!-- Code Utils -->
         <lombok.version>1.18.38</lombok.version>
         <json.version>20250517</json.version>
-        <mapstruct.version>1.6.3</mapstruct.version>
         <jackson-databind.version>2.19.0</jackson-databind.version>
 
         <!-- Rest -->
@@ -62,11 +81,6 @@
                 <groupId>org.json</groupId>
                 <artifactId>json</artifactId>
                 <version>${json.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>org.mapstruct</groupId>
-                <artifactId>mapstruct</artifactId>
-                <version>${mapstruct.version}</version>
             </dependency>
             <dependency>
                 <groupId>com.fasterxml.jackson.core</groupId>
@@ -121,10 +135,6 @@
         <dependency>
             <groupId>org.json</groupId>
             <artifactId>json</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.mapstruct</groupId>
-            <artifactId>mapstruct</artifactId>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
