@@ -56,10 +56,14 @@
         <spring-webflux.version>6.1.14</spring-webflux.version>
         <reactor-core.version>3.6.6</reactor-core.version>
 
+        <!-- Test -->
+        <junit-jupiter.version>5.10.0</junit-jupiter.version>
+
         <!-- Maven Plugin Tools -->
         <maven-plugin-api.version>3.6.3</maven-plugin-api.version>
         <maven-plugin-annotation.version>3.6.0</maven-plugin-annotation.version>
         <maven-project.version>2.2.1</maven-project.version>
+        <maven-plugin-plugin.version>3.9.0</maven-plugin-plugin.version>
     </properties>
 
     <dependencyManagement>
@@ -98,6 +102,14 @@
                 <groupId>io.projectreactor</groupId>
                 <artifactId>reactor-core</artifactId>
                 <version>${reactor-core.version}</version>
+            </dependency>
+
+            <!-- Test -->
+            <dependency>
+                <groupId>org.junit.jupiter</groupId>
+                <artifactId>junit-jupiter</artifactId>
+                <version>${junit-jupiter.version}</version>
+                <scope>test</scope>
             </dependency>
 
             <!-- Maven Plugin Tools -->
@@ -151,6 +163,13 @@
             <artifactId>reactor-core</artifactId>
         </dependency>
 
+        <!-- Test -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+
         <!-- Maven Plugin Tools -->
         <dependency>
             <groupId>org.apache.maven</groupId>
@@ -168,4 +187,29 @@
             <scope>provided</scope>
         </dependency>
     </dependencies>
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-plugin-plugin</artifactId>
+                    <version>${maven-plugin-plugin.version}</version>
+                    <executions>
+                        <execution>
+                            <id>default-descriptor</id>
+                            <goals>
+                                <goal>descriptor</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-plugin-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
 </project>
