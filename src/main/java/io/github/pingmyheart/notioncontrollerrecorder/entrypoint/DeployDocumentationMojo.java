@@ -33,9 +33,11 @@ public class DeployDocumentationMojo extends AbstractMojo {
             readonly = true,
             required = true)
     private MavenProject project;
-    @Parameter(required = true)
+    @Parameter(property = "notionToken",
+            required = true)
     private String notionToken;
-    @Parameter(required = true)
+    @Parameter(property = "notionPageId",
+            required = true)
     private String notionPageId;
 
     private NotionServiceImpl notionServiceImpl;

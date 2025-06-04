@@ -42,7 +42,8 @@ import java.util.stream.Stream;
         defaultPhase = LifecyclePhase.PACKAGE,
         aggregator = true)
 public class GenerateDocumentationMojo extends AbstractMojo {
-    @Parameter(defaultValue = "${project.basedir}/src/main/java", required = true)
+    @Parameter(defaultValue = "${project.basedir}/src/main/java",
+            required = true)
     private File sourceDirectory;
     @Parameter(defaultValue = "${project.build.directory}/generated-sources/ncrmp/notion-report.json",
             required = true)
@@ -153,11 +154,11 @@ public class GenerateDocumentationMojo extends AbstractMojo {
     private String extractControllerPath(ClassOrInterfaceDeclaration clazz) {
         List<String> paths = new ArrayList<>();
         clazz.getAnnotationByName("RequestMapping")
-                .ifPresent(annotation -> paths.add(extractAnnotationFields(annotation).get("path")));
+                .ifPresent(annotation -> paths.add(extractAnnotationFields(annotation, "path").get("path")));
         return String.join(", ", paths);
     }
 
-    private Map<String, String> extractAnnotationFields(AnnotationExpr annotation) {
+    private Map<String, String> extractAnnotationFields(AnnotationExpr annotation, String defaultField) {
         if (annotation.isNormalAnnotationExpr()) {
             return annotation.asNormalAnnotationExpr()
                     .getPairs()
@@ -166,8 +167,13 @@ public class GenerateDocumentationMojo extends AbstractMojo {
                             (m, pair) -> m.put(pair.getNameAsString(), pair.getValue().toString()),
                             HashMap::putAll);
         } else if (annotation.isSingleMemberAnnotationExpr()) {
-            return Collections.singletonMap("value", annotation.asSingleMemberAnnotationExpr().getMemberValue().toString());
+            return Collections.singletonMap(defaultField, annotation.asSingleMemberAnnotationExpr().getMemberValue().toString());
         }
         return Collections.emptyMap();
+    }
+
+
+    private Map<String, String> extractAnnotationFields(AnnotationExpr annotation) {
+        return extractAnnotationFields(annotation, "value");
     }
 }
