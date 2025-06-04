@@ -3,6 +3,7 @@ package io.github.pingmyheart.notioncontrollerrecorder.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.pingmyheart.notioncontrollerrecorder.dto.external.response.NotionBaseResponse;
+import io.github.pingmyheart.notioncontrollerrecorder.enumeration.NotionStatusCode;
 import lombok.Builder;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
@@ -10,6 +11,8 @@ import org.apache.maven.plugin.MojoFailureException;
 import org.springframework.http.HttpMethod;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
+
+import static java.util.Objects.nonNull;
 
 @RequiredArgsConstructor
 @Builder
@@ -23,18 +26,27 @@ public class WebClientImpl {
                                                      HttpMethod httpMethod,
                                                      Class<T> responseClass,
                                                      Object requestBody) {
-//        Objects.requireNonNull(notionToken, "notionToken is null");
         WebClient.RequestBodySpec request = notionWebClient.method(httpMethod)
                 .uri(url)
                 .header("Authorization", "Bearer " + notionToken);
         if (requestBody != null) {
             request.bodyValue(requestBody);
         }
-        return request.exchangeToMono(clientResponse -> clientResponse.statusCode().is2xxSuccessful() ?
+        T response = request.exchangeToMono(clientResponse -> clientResponse.statusCode().is2xxSuccessful() ?
                         clientResponse.bodyToMono(responseClass) :
                         clientResponse.createException()
                                 .map(e -> exceptionToBaseResponse(e, responseClass)))
                 .block();
+        while (nonNull(response) &&
+                nonNull(response.getCode()) &&
+                NotionStatusCode.RATE_LIMITED.getCode().equals(response.getCode())) {
+            response = request.exchangeToMono(clientResponse -> clientResponse.statusCode().is2xxSuccessful() ?
+                            clientResponse.bodyToMono(responseClass) :
+                            clientResponse.createException()
+                                    .map(e -> exceptionToBaseResponse(e, responseClass)))
+                    .block();
+        }
+        return response;
     }
 
     @SneakyThrows
