@@ -72,7 +72,7 @@ dependency to your `pom.xml`:
 </project>
 ```
 
-The other importa part is to set the environment variables but moreover set server inside `.m2/settings.xml` file:
+The other importa part is to set the environment variables but moreover set server inside `~/.m2/settings.xml` file:
 
 ```xml
 
