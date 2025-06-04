@@ -52,7 +52,7 @@ dependency to your `pom.xml`:
       <plugin>
         <groupId>io.github.pingmyheart</groupId>
         <artifactId>notion-controller-recorder-maven-plugin</artifactId>
-        <version>0.0.1-SNAPSHOT</version>
+        <version>${plugin-version}</version>
         <configuration>
           <notionToken>${env.NOTION_TOKEN}</notionToken>
           <notionPageId>${env.NOTION_PAGE_ID}</notionPageId>
