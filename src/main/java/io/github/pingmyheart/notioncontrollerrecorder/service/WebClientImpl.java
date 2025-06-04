@@ -29,7 +29,7 @@ public class WebClientImpl {
         WebClient.RequestBodySpec request = notionWebClient.method(httpMethod)
                 .uri(url)
                 .header("Authorization", "Bearer " + notionToken);
-        if (requestBody != null) {
+        if (nonNull(requestBody)) {
             request.bodyValue(requestBody);
         }
         T response = request.exchangeToMono(clientResponse -> clientResponse.statusCode().is2xxSuccessful() ?
