@@ -94,4 +94,41 @@ The other importa part is to set the environment variables but moreover set serv
 To use the Notion-Controller-Recorder it's enough to create a page inside notion and set the `NOTION_PAGE_ID`
 environment
 variable to the ID of that page. The most importa part is to give permission to the Notion API to write on that page.
-The plugin will automatically generate a page with the project name and a inner page with the version of the project.
+The plugin will automatically generate a page with the project name and an inner page with the version of the project.
+
+To generate documentation without running maven phases, you can run the following command:
+
+```bash
+mvn io.github.pingmyheart:notion-controller-recorder-maven-plugin:generate
+```
+
+While to deploy the documentation to Notion without running maven phases, you can run:
+
+```bash
+mvn io.github.pingmyheart:notion-controller-recorder-maven-plugin:deploy \
+    -DnotionToken=${env.NOTION_TOKEN} \
+    -DnotionPageId=${env.NOTION_PAGE_ID}
+```
+
+To use the plugin as part of your build process, you can run the following command:
+
+```bash
+mvn clean package deploy
+```
+
+The output will be a page inside Notion with following structure:
+
+```
+MainPage
+└── ProjectName
+    └── Version
+        └── Content divided with paragraph
+    └── ...
+└── ProjectName
+    └── Version
+        └── Content divided with paragraph
+    └── ...
+    ...
+```
+
+Where `ProjectName` is the name of your project and `Version` is the version of your project.
