@@ -1,44 +1,23 @@
-name: Publish to GitHub Packages
-
+name: CI
+# Triggers
 on:
+  workflow_dispatch: # Manual trigger from the Actions tab
   push:
-    branches: [ main, develop ]  # Adjust as needed
-  workflow_dispatch:
+    branches:
+      - '**'
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+  packages: write
+  pages: write
+  actions: write
 
 jobs:
-  publish:
-    runs-on: ubuntu-latest
-
-    permissions:
-      contents: read
-      packages: write
-
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Set up Java
-        uses: actions/setup-java@v3
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-          cache: 'maven'
-
-      #      - name: Configure Maven for GitHub Packages
-      #        run: |
-      #          mkdir -p ~/.m2
-      #          cat <<EOF > ~/.m2/settings.xml
-      #          <settings>
-      #            <servers>
-      #              <server>
-      #                <id>github</id>
-      #                <username>${{ github.actor }}</username>
-      #                <password>${{ secrets.GITHUB_TOKEN }}</password>
-      #              </server>
-      #            </servers>
-      #          </settings>
-      #          EOF
-
-      - name: Publish package
-        run: mvn --batch-mode deploy
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  ci:
+    secrets: inherit
+    uses: pingmyheart/Ping-Actions/.github/workflows/dispatcher.yml@main
+    with:
+      project-type: maven
+      java-version: "17"
